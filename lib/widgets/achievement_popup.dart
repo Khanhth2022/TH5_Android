@@ -48,23 +48,17 @@ Future<void> showAchievementPopup(
                     Text(
                       'Tuyệt vời! Bạn đã duy trì "$habitName" trong $streakDays ngày liên tục.',
                       textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 16),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
-                      'Huy hiệu mở khóa: $badgeTitle',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      'Huy hiệu: $badgeTitle',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Tiếp tục'),
-                      ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Đóng'),
                     ),
                   ],
                 ),
