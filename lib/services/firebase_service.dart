@@ -27,6 +27,18 @@ class FirebaseService {
     await _habitCollection.doc(habitId).delete();
   }
 
+  Future<void> deleteHabitsByIds(List<String> habitIds) async {
+    if (habitIds.isEmpty) {
+      return;
+    }
+
+    final batch = _firestore.batch();
+    for (final id in habitIds) {
+      batch.delete(_habitCollection.doc(id));
+    }
+    await batch.commit();
+  }
+
   Future<void> batchUpsertHabits(List<Habit> habits) async {
     final batch = _firestore.batch();
     for (final habit in habits) {
