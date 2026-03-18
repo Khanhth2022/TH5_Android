@@ -13,7 +13,9 @@ class HabitProvider extends ChangeNotifier {
   final FirebaseService _firebaseService;
 
   final List<Habit> _habits = <Habit>[];
-  final List<BadgeModel> _badges = BadgeModel.defaultBadges();
+  final List<BadgeModel> _badges = List<BadgeModel>.of(
+    BadgeModel.defaultBadges(),
+  );
 
   DateTime _selectedDate = DateTime.now();
   HabitFilter _filter = HabitFilter.all;

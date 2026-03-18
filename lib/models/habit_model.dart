@@ -126,8 +126,18 @@ class Habit {
   int currentStreak({DateTime? now}) {
     final today = (now ?? DateTime.now());
     final normalizedToday = DateTime(today.year, today.month, today.day);
+
     var cursor = normalizedToday;
-    var streak = 0;
+    while (!isScheduledOn(cursor)) {
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
+    if (!isCompletedOn(cursor)) {
+      return 0;
+    }
+
+    var streak = 1;
+    cursor = cursor.subtract(const Duration(days: 1));
 
     while (true) {
       if (!isScheduledOn(cursor)) {
@@ -138,9 +148,9 @@ class Habit {
       if (isCompletedOn(cursor)) {
         streak += 1;
         cursor = cursor.subtract(const Duration(days: 1));
-        continue;
+      } else {
+        break;
       }
-      break;
     }
 
     return streak;

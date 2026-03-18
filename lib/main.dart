@@ -2,7 +2,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:habit_tracker/firebase_options.dart';
 import 'package:habit_tracker/models/habit_model.dart';
+import 'package:habit_tracker/providers/gamification_provider.dart';
 import 'package:habit_tracker/providers/habit_provider.dart';
+import 'package:habit_tracker/screens/streak_badges_screen.dart';
 import 'package:provider/provider.dart';
 
 Future<void> main() async {
@@ -20,6 +22,14 @@ class HabitTrackerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<HabitProvider>(
           create: (_) => HabitProvider()..loadHabits(),
+        ),
+        ChangeNotifierProxyProvider<HabitProvider, GamificationProvider>(
+          create: (_) => GamificationProvider(),
+          update: (_, habitProvider, gamificationProvider) {
+            final provider = gamificationProvider ?? GamificationProvider();
+            provider.evaluateFromHabits(habitProvider.habits);
+            return provider;
+          },
         ),
       ],
       child: MaterialApp(
@@ -52,7 +62,22 @@ class DashboardBootstrapScreen extends StatelessWidget {
     final habits = provider.habitsForSelectedDate;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Habit Tracker - Nhóm 1')),
+      appBar: AppBar(
+        title: const Text('Habit Tracker - Nhóm 1'),
+        actions: [
+          IconButton(
+            tooltip: 'Streak & Badges',
+            icon: const Icon(Icons.workspace_premium),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const StreakBadgesScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
