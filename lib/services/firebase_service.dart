@@ -1,58 +1,57 @@
-import 'dart:math';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:habit_tracker/models/habit_model.dart';
 
 class FirebaseService {
-  FirebaseService({
-    Duration networkDelay = const Duration(milliseconds: 250),
-    double failureRate = 0,
-  }) : _networkDelay = networkDelay,
-       _failureRate = failureRate;
+  FirebaseService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  final Duration _networkDelay;
-  final double _failureRate;
+  final FirebaseFirestore _firestore;
 
-  final Map<String, Habit> _habitStore = <String, Habit>{};
-  final Random _random = Random();
+  CollectionReference<Map<String, dynamic>> get _habitCollection =>
+      _firestore.collection('habits');
 
   Future<List<Habit>> fetchHabits() async {
-    await _simulateNetwork();
-    return _habitStore.values.toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final snapshot = await _habitCollection.orderBy('name').get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data.putIfAbsent('id', () => doc.id);
+      return Habit.fromJson(data);
+    }).toList();
   }
 
   Future<void> upsertHabit(Habit habit) async {
-    await _simulateNetwork();
-    _habitStore[habit.id] = habit;
+    await _habitCollection.doc(habit.id).set(habit.toJson());
   }
 
   Future<void> deleteHabit(String habitId) async {
-    await _simulateNetwork();
-    _habitStore.remove(habitId);
+    await _habitCollection.doc(habitId).delete();
   }
 
   Future<void> batchUpsertHabits(List<Habit> habits) async {
-    await _simulateNetwork();
+    final batch = _firestore.batch();
     for (final habit in habits) {
-      _habitStore[habit.id] = habit;
+      final ref = _habitCollection.doc(habit.id);
+      batch.set(ref, habit.toJson());
     }
+    await batch.commit();
   }
 
   Future<void> syncAllHabits(List<Habit> habits) async {
-    await _simulateNetwork();
-    _habitStore
-      ..clear()
-      ..addEntries(habits.map((habit) => MapEntry(habit.id, habit)));
-  }
+    final existing = await _habitCollection.get();
+    final batch = _firestore.batch();
 
-  Future<void> _simulateNetwork() async {
-    await Future<void>.delayed(_networkDelay);
-    if (_failureRate <= 0) {
-      return;
+    final incomingIds = habits.map((habit) => habit.id).toSet();
+    for (final doc in existing.docs) {
+      if (!incomingIds.contains(doc.id)) {
+        batch.delete(doc.reference);
+      }
     }
-    final shouldFail = _random.nextDouble() < _failureRate;
-    if (shouldFail) {
-      throw Exception('Network error while syncing with Firebase.');
+
+    for (final habit in habits) {
+      final ref = _habitCollection.doc(habit.id);
+      batch.set(ref, habit.toJson());
     }
+
+    await batch.commit();
   }
 }
