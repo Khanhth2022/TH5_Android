@@ -52,7 +52,7 @@ class BadgeItem extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '${badge.milestoneDays} ngay',
+              '${badge.milestoneDays} ngày',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
