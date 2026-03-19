@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 
+import '../models/habit_model.dart';
 import '../providers/gamification_provider.dart';
 import '../providers/habit_provider.dart';
-import '../models/habit_model.dart';
-import '../screens/streak_badges_screen.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/add_habit_bottom_sheet.dart';
 import '../widgets/achievement_popup.dart';
 import '../widgets/common_alert_dialog.dart';
@@ -15,7 +13,7 @@ import '../widgets/habit_card.dart';
 import '../widgets/search_bar_sliver.dart';
 
 class DashboardCalendarScreen extends StatefulWidget {
-  const DashboardCalendarScreen({Key? key}) : super(key: key);
+  const DashboardCalendarScreen({super.key});
 
   @override
   State<DashboardCalendarScreen> createState() =>
@@ -26,27 +24,31 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   bool _isShowingAchievement = false;
   bool _didSyncSelectedDate = false;
+  bool _isCalendarExpanded = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
     if (!_didSyncSelectedDate) {
-      final provider = context.read<HabitProvider>();
-      _selectedDate = provider.selectedDate;
+      _selectedDate = context.read<HabitProvider>().selectedDate;
       _didSyncSelectedDate = true;
     }
-    _scheduleAchievementPopup();
-  }
 
-  void _scheduleAchievementPopup() {
-    if (_isShowingAchievement) return;
+    if (_isShowingAchievement) {
+      return;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isShowingAchievement) return;
+      if (!mounted || _isShowingAchievement) {
+        return;
+      }
 
       final gamification = context.read<GamificationProvider>();
       final newBadge = gamification.latestUnlockedBadge;
-      if (newBadge == null) return;
+      if (newBadge == null) {
+        return;
+      }
 
       _isShowingAchievement = true;
       showAchievementPopup(
@@ -58,7 +60,9 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
         streakDays: newBadge.milestoneDays,
         badgeTitle: newBadge.title,
       ).whenComplete(() {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         gamification.consumeLatestAchievement();
         _isShowingAchievement = false;
       });
@@ -73,53 +77,56 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
           SliverAppBar(
             pinned: true,
             floating: true,
-            snap: false,
-            expandedHeight: 100,
-            title: const Text('Habit Tracker - Nhom [So nhom]'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.filter_alt),
-                onPressed: () {
-                  // TODO: Show filter options
-                },
-              ),
-              IconButton(
-                tooltip: 'Streak & Badges',
-                icon: const Icon(Icons.workspace_premium),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const StreakBadgesScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(60),
-              child: Container(),
+            expandedHeight: 90,
+            title: const Text('Habit Tracker - Nhóm 6'),
+            actions: [const _ThemeModeMenuButton()],
+            bottom: const PreferredSize(
+              preferredSize: Size.fromHeight(60),
+              child: SizedBox.shrink(),
             ),
           ),
           const SearchBarSliver(),
           SliverToBoxAdapter(
-            child: SizedBox(
-              height: 96,
-              child: _WeekCalendar(
-                selectedDate: _selectedDate,
-                onDateSelected: (date) {
-                  setState(() {
-                    _selectedDate = date;
-                  });
-                  context.read<HabitProvider>().setSelectedDate(date);
-                },
-              ),
+            child: _CalendarDropdown(
+              selectedDate: _selectedDate,
+              isExpanded: _isCalendarExpanded,
+              onToggle: () {
+                setState(() {
+                  _isCalendarExpanded = !_isCalendarExpanded;
+                });
+              },
+              onDateSelected: (date) {
+                final normalizedDate = DateTime(
+                  date.year,
+                  date.month,
+                  date.day,
+                );
+                setState(() {
+                  _selectedDate = normalizedDate;
+                  _isCalendarExpanded = false;
+                });
+                context.read<HabitProvider>().setSelectedDate(normalizedDate);
+              },
+              onSelectToday: () {
+                final today = DateTime.now();
+                final normalizedToday = DateTime(
+                  today.year,
+                  today.month,
+                  today.day,
+                );
+                setState(() {
+                  _selectedDate = normalizedToday;
+                });
+                context.read<HabitProvider>().setSelectedDate(normalizedToday);
+              },
             ),
           ),
+          SliverToBoxAdapter(child: const SizedBox(height: 4)),
           SliverToBoxAdapter(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 300),
               child: _HabitList(
-                key: ValueKey(_selectedDate),
+                key: ValueKey(Habit.dateKey(_selectedDate)),
                 selectedDate: _selectedDate,
               ),
             ),
@@ -132,7 +139,7 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (context) => const FractionallySizedBox(
+            builder: (_) => const FractionallySizedBox(
               heightFactor: 0.8,
               child: AddHabitBottomSheet(),
             ),
@@ -144,89 +151,122 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
   }
 }
 
-class _WeekCalendar extends StatelessWidget {
+class _CalendarDropdown extends StatelessWidget {
+  const _CalendarDropdown({
+    required this.selectedDate,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.onDateSelected,
+    required this.onSelectToday,
+  });
+
+  final DateTime selectedDate;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final VoidCallback onSelectToday;
+  final ValueChanged<DateTime> onDateSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final normalizedSelected = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    final isToday = normalizedSelected == today;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: onToggle,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.today, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            isToday
+                                ? 'Hôm nay (${_formatDate(selectedDate)})'
+                                : _formatDate(selectedDate),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const Spacer(),
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: onSelectToday,
+                  child: const Text('Chọn hôm nay'),
+                ),
+              ],
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: _MonthCalendar(
+                selectedDate: selectedDate,
+                onDateSelected: onDateSelected,
+              ),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 220),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString();
+    return '$day/$month/$year';
+  }
+}
+
+class _MonthCalendar extends StatelessWidget {
   final DateTime selectedDate;
   final ValueChanged<DateTime> onDateSelected;
 
-  const _WeekCalendar({
-    super.key,
+  const _MonthCalendar({
     required this.selectedDate,
     required this.onDateSelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final startOfWeek = selectedDate.subtract(
-      Duration(days: selectedDate.weekday - 1),
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: CalendarDatePicker(
+        initialDate: selectedDate,
+        firstDate: DateTime(2020, 1, 1),
+        lastDate: DateTime(2100, 12, 31),
+        currentDate: DateTime.now(),
+        onDateChanged: onDateSelected,
+      ),
     );
-    final days = List.generate(7, (i) => startOfWeek.add(Duration(days: i)));
-
-    return ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: days.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 8),
-      itemBuilder: (context, index) {
-        final day = days[index];
-        final isSelected =
-            day.year == selectedDate.year &&
-            day.month == selectedDate.month &&
-            day.day == selectedDate.day;
-        final isToday =
-            day.year == now.year &&
-            day.month == now.month &&
-            day.day == now.day;
-
-        return GestureDetector(
-          onTap: () => onDateSelected(day),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).colorScheme.primary : null,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isToday
-                    ? Theme.of(context).colorScheme.secondary
-                    : Colors.transparent,
-                width: isToday ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  _weekdayLabel(day.weekday),
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  day.day.toString(),
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  String _weekdayLabel(int weekday) {
-    const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-    return labels[weekday - 1];
   }
 }
 
@@ -245,7 +285,7 @@ class _HabitListState extends State<_HabitList> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => FractionallySizedBox(
+      builder: (_) => FractionallySizedBox(
         heightFactor: 0.8,
         child: AddHabitBottomSheet(initialHabit: habit),
       ),
@@ -255,21 +295,23 @@ class _HabitListState extends State<_HabitList> {
   Future<bool> _confirmDeleteHabit(Habit habit) async {
     final confirm = await showCommonAlertDialog(
       context,
-      title: 'Xac nhan xoa',
+      title: 'Xác nhận xóa',
       content:
-          'Ban co chac chan muon xoa "${habit.name}"? Moi chuoi (Streak) se bi mat!',
-      confirmText: 'Xoa',
-      cancelText: 'Huy',
+          'Bạn có chắc chắn muốn xóa "${habit.name}"? Mọi chuỗi (Streak) sẽ bị mất!',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
     );
     return confirm == true;
   }
 
   Future<void> _removeHabit(Habit habit) async {
     await context.read<HabitProvider>().deleteHabit(habit.id);
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('Da xoa thoi quen ${habit.name}')));
+    ).showSnackBar(SnackBar(content: Text('Đã xóa thói quen ${habit.name}')));
   }
 
   List<bool> _checkedListForHabit(Habit habit) {
@@ -297,6 +339,21 @@ class _HabitListState extends State<_HabitList> {
     }
   }
 
+  Future<void> _toggleHabitCompletion(Habit habit) async {
+    if (habit.targetCountPerDay == 1) {
+      await context.read<HabitProvider>().toggleMainCompletion(
+        habit.id,
+        date: widget.selectedDate,
+      );
+      return;
+    }
+
+    final completed = habit.isCompletedOn(widget.selectedDate);
+    final targetState = !completed;
+    final next = List<bool>.filled(habit.targetCountPerDay, targetState);
+    await _applyCheckedList(habit, next);
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HabitProvider>();
@@ -312,115 +369,64 @@ class _HabitListState extends State<_HabitList> {
     if (provider.errorMessage != null && habits.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16),
-        child: Center(child: Text('Loi tai du lieu: ${provider.errorMessage}')),
+        child: Center(child: Text('Lỗi tải dữ liệu: ${provider.errorMessage}')),
       );
     }
 
     if (habits.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(16),
-        child: Center(child: Text('Khong co thoi quen nao cho ngay nay.')),
+        child: Center(child: Text('Không có thói quen nào cho ngày này.')),
       );
     }
 
-    return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(
-        dragDevices: {
-          PointerDeviceKind.touch,
-          PointerDeviceKind.mouse,
-          PointerDeviceKind.trackpad,
-          PointerDeviceKind.stylus,
-          PointerDeviceKind.unknown,
-        },
-      ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: habits.length,
-        itemBuilder: (context, index) {
-          final habit = habits[index];
-          final isMulti = habit.targetCountPerDay > 1;
-          final checkedList = _checkedListForHabit(habit);
-          final completed = habit.isCompletedOn(widget.selectedDate);
-          final timeLabel = habit.reminderMinutesFromMidnight == null
-              ? '--:--'
-              : _formatMinutes(habit.reminderMinutesFromMidnight!);
-          final icon = habit.iconCodePoint == null
-              ? Icons.check_circle_outline
-              : IconData(
-                  habit.iconCodePoint!,
-                  fontFamily: habit.iconFontFamily,
-                );
+    return Column(
+      children: habits.map((habit) {
+        final isMulti = habit.targetCountPerDay > 1;
+        final checkedList = _checkedListForHabit(habit);
+        final completed = habit.isCompletedOn(widget.selectedDate);
+        final timeLabel = habit.reminderMinutesFromMidnight == null
+            ? '--:--'
+            : _formatMinutes(habit.reminderMinutesFromMidnight!);
+        final icon = habit.iconCodePoint == null
+            ? Icons.check_circle_outline
+            : IconData(habit.iconCodePoint!, fontFamily: habit.iconFontFamily);
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Slidable(
-              key: ValueKey(habit.id),
-              closeOnScroll: false,
-              endActionPane: ActionPane(
-                motion: const DrawerMotion(),
-                extentRatio: 0.28,
-                dismissible: DismissiblePane(
-                  closeOnCancel: true,
-                  onDismissed: () => _removeHabit(habit),
-                  confirmDismiss: () => _confirmDeleteHabit(habit),
-                ),
-                children: [
-                  SlidableAction(
-                    onPressed: (_) async {
-                      final shouldDelete = await _confirmDeleteHabit(habit);
-                      if (!shouldDelete || !mounted) return;
-                      await _removeHabit(habit);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            children: [
+              HabitCard(
+                icon: icon,
+                name: habit.name,
+                time: timeLabel,
+                completed: completed,
+                onTap: () => _toggleHabitCompletion(habit),
+                onToggleCompletion: () => _toggleHabitCompletion(habit),
+                onEdit: () => _openEditHabitSheet(habit),
+                onDelete: () async {
+                  final shouldDelete = await _confirmDeleteHabit(habit);
+                  if (!shouldDelete || !mounted) {
+                    return;
+                  }
+                  await _removeHabit(habit);
+                },
+              ),
+              if (isMulti)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 16, right: 16),
+                  child: ExpandableCheckbox(
+                    repeatCount: habit.targetCountPerDay,
+                    checkedList: checkedList,
+                    onChanged: (list) async {
+                      await _applyCheckedList(habit, list);
                     },
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    icon: Icons.delete,
-                    label: 'Xoa',
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _openEditHabitSheet(habit),
-                    onLongPress: () => _openEditHabitSheet(habit),
-                    child: HabitCard(
-                      icon: icon,
-                      name: habit.name,
-                      time: timeLabel,
-                      completed: completed,
-                      onTap: null,
-                      onEdit: () => _openEditHabitSheet(habit),
-                      onDelete: () async {
-                        final shouldDelete = await _confirmDeleteHabit(habit);
-                        if (!shouldDelete || !mounted) return;
-                        await _removeHabit(habit);
-                      },
-                    ),
-                  ),
-                  if (isMulti)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: 4,
-                        left: 16,
-                        right: 16,
-                      ),
-                      child: ExpandableCheckbox(
-                        repeatCount: habit.targetCountPerDay,
-                        checkedList: checkedList,
-                        onChanged: (list) async {
-                          await _applyCheckedList(habit, list);
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -428,5 +434,33 @@ class _HabitListState extends State<_HabitList> {
     final hour = (minutes ~/ 60).toString().padLeft(2, '0');
     final minute = (minutes % 60).toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+}
+
+class _ThemeModeMenuButton extends StatelessWidget {
+  const _ThemeModeMenuButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final currentMode = context.watch<ThemeProvider>().themeMode;
+
+    return PopupMenuButton<ThemeMode>(
+      tooltip: 'Chọn chế độ giao diện',
+      icon: const Icon(Icons.brightness_6_outlined),
+      initialValue: currentMode,
+      onSelected: (mode) {
+        context.read<ThemeProvider>().setThemeMode(mode);
+      },
+      itemBuilder: (context) {
+        return const [
+          PopupMenuItem<ThemeMode>(
+            value: ThemeMode.system,
+            child: Text('Theo hệ thống'),
+          ),
+          PopupMenuItem<ThemeMode>(value: ThemeMode.light, child: Text('Sáng')),
+          PopupMenuItem<ThemeMode>(value: ThemeMode.dark, child: Text('Tối')),
+        ];
+      },
+    );
   }
 }

@@ -33,9 +33,7 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
   void initState() {
     super.initState();
     final habit = widget.initialHabit;
-    if (habit == null) {
-      return;
-    }
+    if (habit == null) return;
 
     _nameController.text = habit.name;
     _descriptionController.text = habit.description ?? '';
@@ -47,7 +45,14 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
     if (habit.reminderMinutesFromMidnight != null) {
       final minutes = habit.reminderMinutesFromMidnight!;
       _selectedTime = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+      _timeController.text = _formatTime(_selectedTime!);
     }
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   @override
@@ -59,8 +64,8 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
     super.dispose();
   }
 
-  bool _isNameSimilar(String input, Iterable<String> existingHabits) {
-    for (final habit in existingHabits) {
+  bool _isNameSimilar(String input, Iterable<String> existingNames) {
+    for (final habit in existingNames) {
       final sim = StringMatchingService.normalizedSimilarity(input, habit);
       if (sim >= 0.9) return true;
     }
@@ -70,7 +75,13 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HabitProvider>();
-    final existingHabitNames = provider.habits.map((h) => h.name).toList();
+    final existingNames = provider.habits.map((habit) => habit.name).where((
+      name,
+    ) {
+      if (!_isEditMode) return true;
+      return name.toLowerCase() !=
+          widget.initialHabit!.name.trim().toLowerCase();
+    }).toList();
 
     return Material(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -99,52 +110,24 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                 ),
               ),
               Text(
-                widget.initialHabit == null
-                    ? 'Thêm thói quen mới'
-                    : 'Sửa thói quen',
+                _isEditMode ? 'Sửa thói quen' : 'Thêm thói quen mới',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              // Tên thói quen (bắt buộc, auto-suggest, kiểm tra trùng)
-              Autocomplete<String>(
-                initialValue: TextEditingValue(text: _nameController.text),
-                optionsBuilder: (textEditingValue) {
-                  final pattern = textEditingValue.text.trim().toLowerCase();
-                  if (pattern.isEmpty) {
-                    return const Iterable<String>.empty();
+              TextField(
+                controller: _nameController,
+                onChanged: (_) {
+                  if (_nameError != null) {
+                    setState(() {
+                      _nameError = null;
+                    });
                   }
-                  return existingHabitNames.where(
-                    (habit) => habit.toLowerCase().contains(pattern),
-                  );
                 },
-                onSelected: (suggestion) {
-                  _nameController.text = suggestion;
-                },
-                fieldViewBuilder:
-                    (
-                      context,
-                      textEditingController,
-                      focusNode,
-                      onFieldSubmitted,
-                    ) {
-                      return TextField(
-                        controller: textEditingController,
-                        focusNode: focusNode,
-                        onChanged: (value) {
-                          _nameController.text = value;
-                          if (_nameError != null) {
-                            setState(() {
-                              _nameError = null;
-                            });
-                          }
-                        },
-                        decoration: InputDecoration(
-                          labelText: 'Tên thói quen *',
-                          border: const OutlineInputBorder(),
-                          errorText: _nameError,
-                        ),
-                      );
-                    },
+                decoration: InputDecoration(
+                  labelText: 'Tên thói quen *',
+                  border: const OutlineInputBorder(),
+                  errorText: _nameError,
+                ),
               ),
               const SizedBox(height: 12),
               // Mô tả (cho phép bỏ trống)
@@ -243,15 +226,7 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                             return;
                           }
 
-                          final namesForValidation = existingHabitNames.where((
-                            existing,
-                          ) {
-                            if (!_isEditMode) return true;
-                            return existing.toLowerCase() !=
-                                widget.initialHabit!.name.toLowerCase();
-                          });
-
-                          if (_isNameSimilar(name, namesForValidation)) {
+                          if (_isNameSimilar(name, existingNames)) {
                             setState(() {
                               _nameError =
                                   'Tên thói quen đã tồn tại hoặc quá giống!';
@@ -270,10 +245,6 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                             return;
                           }
 
-                          final selectedWeekdays = _selectedWeekdays.isEmpty
-                              ? <int>{1, 2, 3, 4, 5, 6, 7}
-                              : _selectedWeekdays;
-
                           final reminderMinutes = _selectedTime == null
                               ? null
                               : (_selectedTime!.hour * 60 +
@@ -288,15 +259,17 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                                 _descriptionController.text.trim().isEmpty
                                 ? null
                                 : _descriptionController.text.trim(),
+                            iconCodePoint: widget.initialHabit?.iconCodePoint,
+                            iconFontFamily: widget.initialHabit?.iconFontFamily,
                             targetCountPerDay: repeatCount,
-                            activeWeekdays: selectedWeekdays,
+                            activeWeekdays: _selectedWeekdays.isEmpty
+                                ? <int>{1, 2, 3, 4, 5, 6, 7}
+                                : _selectedWeekdays,
                             reminderMinutesFromMidnight: reminderMinutes,
                             createdAt:
                                 widget.initialHabit?.createdAt ??
                                 DateTime.now(),
                             progressByDate: widget.initialHabit?.progressByDate,
-                            iconCodePoint: widget.initialHabit?.iconCodePoint,
-                            iconFontFamily: widget.initialHabit?.iconFontFamily,
                           );
 
                           setState(() {
@@ -304,14 +277,12 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                           });
 
                           final habitProvider = context.read<HabitProvider>();
-                          final messenger = ScaffoldMessenger.of(context);
-                          final navigator = Navigator.of(context);
-
                           if (_isEditMode) {
                             await habitProvider.updateHabit(habit);
                           } else {
                             await habitProvider.addHabit(habit);
                           }
+
                           if (!mounted) return;
 
                           setState(() {
@@ -323,7 +294,7 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                           );
                           if (!existsInProvider) {
                             final error = habitProvider.errorMessage;
-                            messenger.showSnackBar(
+                            ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
                                   error == null
@@ -335,7 +306,7 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                             return;
                           }
 
-                          messenger.showSnackBar(
+                          ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
                                 _isEditMode
@@ -344,7 +315,7 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                               ),
                             ),
                           );
-                          navigator.pop(true);
+                          Navigator.of(context).pop(true);
                         },
                   child: Text(
                     _isSaving
@@ -353,7 +324,6 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                   ),
                 ),
               ),
-              // Nút xóa (ví dụ, dùng cho sửa/xóa thói quen)
               if (_isEditMode)
                 SizedBox(
                   width: double.infinity,
@@ -372,20 +342,17 @@ class _AddHabitBottomSheetState extends State<AddHabitBottomSheet> {
                         confirmText: 'Xóa',
                         cancelText: 'Hủy',
                       );
-                      if (confirm != true) {
-                        return;
-                      }
+                      if (confirm != true) return;
 
-                      final habitProvider = context.read<HabitProvider>();
-                      final messenger = ScaffoldMessenger.of(context);
-                      final navigator = Navigator.of(context);
-                      await habitProvider.deleteHabit(widget.initialHabit!.id);
+                      await context.read<HabitProvider>().deleteHabit(
+                        widget.initialHabit!.id,
+                      );
                       if (!mounted) return;
 
-                      messenger.showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Đã xóa thói quen')),
                       );
-                      navigator.pop(true);
+                      Navigator.of(context).pop(true);
                     },
                   ),
                 ),
@@ -421,13 +388,12 @@ class _WeekdaySelectorState extends State<_WeekdaySelector> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(7, (i) {
         final weekday = i + 1;
-        final selected = widget.selectedWeekdays.contains(weekday);
         return ChoiceChip(
           label: Text(_labels[i]),
-          selected: selected,
-          onSelected: (isSelected) {
+          selected: widget.selectedWeekdays.contains(weekday),
+          onSelected: (selected) {
             final next = Set<int>.from(widget.selectedWeekdays);
-            if (isSelected) {
+            if (selected) {
               next.add(weekday);
             } else {
               next.remove(weekday);
