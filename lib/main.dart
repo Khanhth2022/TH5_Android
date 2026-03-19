@@ -4,6 +4,7 @@ import 'package:habit_tracker/firebase_options.dart';
 import 'package:habit_tracker/models/habit_model.dart';
 import 'package:habit_tracker/providers/gamification_provider.dart';
 import 'package:habit_tracker/providers/habit_provider.dart';
+import 'package:habit_tracker/screens/dashboard_calendar_screen.dart';
 import 'package:habit_tracker/screens/streak_badges_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -47,7 +48,7 @@ class HabitTrackerApp extends StatelessWidget {
             brightness: Brightness.dark,
           ),
         ),
-        home: const DashboardBootstrapScreen(),
+        home: const DashboardCalendarScreen(),
       ),
     );
   }

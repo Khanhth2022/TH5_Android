@@ -129,13 +129,30 @@ class HabitProvider extends ChangeNotifier {
   }
 
   Future<void> addHabit(Habit habit) async {
+    _errorMessage = null;
     final snapshot = List<Habit>.from(_habits);
 
-    _habits.add(habit);
+    final existingIndex = _habits.indexWhere((item) => item.id == habit.id);
+    if (existingIndex >= 0) {
+      _habits[existingIndex] = habit;
+    } else {
+      _habits.add(habit);
+    }
     notifyListeners();
 
     try {
       await _firebaseService.upsertHabit(habit);
+
+      // Guard against races (e.g. loadHabits finishing while add is in flight)
+      // so the just-added habit is always present in memory and UI.
+      final indexAfterSync = _habits.indexWhere((item) => item.id == habit.id);
+      if (indexAfterSync >= 0) {
+        _habits[indexAfterSync] = habit;
+      } else {
+        _habits.add(habit);
+      }
+      _errorMessage = null;
+      notifyListeners();
     } catch (e) {
       _habits
         ..clear()
