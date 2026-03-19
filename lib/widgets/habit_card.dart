@@ -6,6 +6,7 @@ class HabitCard extends StatelessWidget {
   final String time;
   final bool completed;
   final VoidCallback? onTap;
+  final VoidCallback? onToggleCompletion;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -16,6 +17,7 @@ class HabitCard extends StatelessWidget {
     required this.time,
     this.completed = false,
     this.onTap,
+    this.onToggleCompletion,
     this.onEdit,
     this.onDelete,
   }) : super(key: key);
@@ -38,6 +40,11 @@ class HabitCard extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (onToggleCompletion != null)
+              Checkbox(
+                value: completed,
+                onChanged: (_) => onToggleCompletion?.call(),
+              ),
             if (onEdit != null)
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.blue),

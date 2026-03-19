@@ -53,7 +53,7 @@ class _StreakBadgesScreenState extends State<StreakBadgesScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Chuỗi & Huy hiệu'),
+          title: const Text('Habit Tracker - Nhóm 6'),
           bottom: const TabBar(
             tabs: <Tab>[
               Tab(
