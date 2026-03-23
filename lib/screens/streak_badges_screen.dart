@@ -248,17 +248,6 @@ class _BadgesTab extends StatelessWidget {
   }
 
   void _onBadgeStatsTap(BuildContext context, _BadgeStatsRow row) {
-    if (row.achievements.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Chưa có thói quen nào đạt mốc ${row.badge.milestoneDays} ngày.',
-          ),
-        ),
-      );
-      return;
-    }
-
     showDialog<void>(
       context: context,
       builder: (context) {
@@ -266,22 +255,30 @@ class _BadgesTab extends StatelessWidget {
           title: Text('Danh sách đạt ${row.badge.title}'),
           content: SizedBox(
             width: 460,
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: row.achievements.length,
-              separatorBuilder: (context, index) => const Divider(height: 16),
-              itemBuilder: (context, index) {
-                final item = row.achievements[index];
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(row.icon, color: row.color),
-                  title: Text(item.habitName),
-                  subtitle: Text(
-                    'Đạt vào: ${_formatDateTime(item.achievedAt)}',
+            child: row.achievements.isEmpty
+                ? Center(
+                    child: Text(
+                      'Chưa có thói quen nào đạt mốc ${row.badge.milestoneDays} ngày.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: row.achievements.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 16),
+                    itemBuilder: (context, index) {
+                      final item = row.achievements[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(row.icon, color: row.color),
+                        title: Text(item.habitName),
+                        subtitle: Text(
+                          'Đạt vào ngày: ${_formatDate(item.achievedAt)}',
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           actions: <Widget>[
             TextButton(
@@ -294,15 +291,13 @@ class _BadgesTab extends StatelessWidget {
     );
   }
 
-  String _formatDateTime(DateTime? value) {
+  String _formatDate(DateTime? value) {
     if (value == null) {
       return 'Không rõ';
     }
     final day = value.day.toString().padLeft(2, '0');
     final month = value.month.toString().padLeft(2, '0');
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    return '$day/$month/${value.year} $hour:$minute';
+    return '$day/$month/${value.year}';
   }
 
   List<_HabitAchievement> _buildAchievementList(

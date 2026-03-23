@@ -24,7 +24,15 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   bool _isShowingAchievement = false;
   bool _didSyncSelectedDate = false;
+  bool _didSyncSearchQuery = false;
   bool _isCalendarExpanded = false;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -33,6 +41,11 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
     if (!_didSyncSelectedDate) {
       _selectedDate = context.read<HabitProvider>().selectedDate;
       _didSyncSelectedDate = true;
+    }
+
+    if (!_didSyncSearchQuery) {
+      _searchController.text = context.read<HabitProvider>().searchQuery;
+      _didSyncSearchQuery = true;
     }
 
     if (_isShowingAchievement) {
@@ -85,7 +98,17 @@ class _DashboardCalendarScreenState extends State<DashboardCalendarScreen> {
               child: SizedBox.shrink(),
             ),
           ),
-          const SearchBarSliver(),
+          SearchBarSliver(
+            hintText: 'Tìm theo tên thói quen...',
+            controller: _searchController,
+            onChanged: (value) {
+              context.read<HabitProvider>().setSearchQuery(value);
+            },
+            onClear: () {
+              _searchController.clear();
+              context.read<HabitProvider>().setSearchQuery('');
+            },
+          ),
           SliverToBoxAdapter(
             child: _CalendarDropdown(
               selectedDate: _selectedDate,

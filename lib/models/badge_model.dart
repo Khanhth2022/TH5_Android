@@ -86,6 +86,35 @@ class BadgeModel {
   }
 
   static List<BadgeModel> defaultBadges() {
-    return const <BadgeModel>[];
+    return const <BadgeModel>[
+      BadgeModel(
+        id: 'badge_bronze_7',
+        title: 'Khởi Đầu Hoàn Hảo',
+        description: 'Duy trì thói quen liên tiếp 7 ngày.',
+        milestoneDays: 7,
+        tier: BadgeTier.bronze,
+      ),
+      BadgeModel(
+        id: 'badge_silver_21',
+        title: 'Thói Quen Hình Thành',
+        description: 'Duy trì thói quen liên tiếp 21 ngày.',
+        milestoneDays: 21,
+        tier: BadgeTier.silver,
+      ),
+      BadgeModel(
+        id: 'badge_gold_50',
+        title: 'Kiên Trì Bền Bỉ',
+        description: 'Duy trì thói quen liên tiếp 50 ngày.',
+        milestoneDays: 50,
+        tier: BadgeTier.gold,
+      ),
+      BadgeModel(
+        id: 'badge_diamond_100',
+        title: 'Kỷ Luật Thép',
+        description: 'Duy trì thói quen liên tiếp 100 ngày.',
+        milestoneDays: 100,
+        tier: BadgeTier.diamond,
+      ),
+    ];
   }
 }
